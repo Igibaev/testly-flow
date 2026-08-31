@@ -3,6 +3,30 @@ import { useNavigate } from 'react-router-dom';
 import { listCategories } from '../api/categories';
 import { startAttempt } from '../api/attempts';
 
+const SAMPLE_MIN = 10;
+const SAMPLE_MAX = 15;
+
+function plural(n, one, few, many) {
+  const abs = Math.abs(n) % 100;
+  const d = abs % 10;
+  if (abs > 10 && abs < 20) return many;
+  if (d === 1) return one;
+  if (d >= 2 && d <= 4) return few;
+  return many;
+}
+
+function sampledRange(categories) {
+  return categories.reduce(
+    (acc, c) => {
+      if (c.questionCount <= 0) return acc;
+      acc.min += Math.min(c.questionCount, SAMPLE_MIN);
+      acc.max += Math.min(c.questionCount, SAMPLE_MAX);
+      return acc;
+    },
+    { min: 0, max: 0 }
+  );
+}
+
 export default function HomePage() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState(null);
@@ -23,7 +47,13 @@ export default function HomePage() {
       .catch((e) => setLoadError(e.message));
   }
 
-  const totalQuestions = categories?.reduce((sum, c) => sum + c.questionCount, 0) ?? 0;
+  const filledCategories = categories?.filter((c) => c.questionCount > 0) ?? [];
+  const { min: estimateMin, max: estimateMax } = sampledRange(filledCategories);
+  const blockCount = filledCategories.length;
+  const estimateText =
+    estimateMin === estimateMax
+      ? `Тест соберёт ${estimateMin} ${plural(estimateMin, 'вопрос', 'вопроса', 'вопросов')} из ${blockCount} ${plural(blockCount, 'блока', 'блоков', 'блоков')}.`
+      : `Тест соберёт ${estimateMin}–${estimateMax} ${plural(estimateMax, 'вопрос', 'вопроса', 'вопросов')} из ${blockCount} ${plural(blockCount, 'блока', 'блоков', 'блоков')}.`;
 
   async function handleStart(e) {
     e.preventDefault();
@@ -54,6 +84,10 @@ export default function HomePage() {
       </section>
 
       <section className="home-categories" aria-live="polite">
+        <header className="home-section-header">
+          <h2>Категории вопросов</h2>
+          <p className="home-section-sub">Добавленные блоки, из которых собирается тест</p>
+        </header>
         {loadError && (
           <div className="state-error">
             <p>Не удалось загрузить блоки вопросов: {loadError}</p>
@@ -80,7 +114,9 @@ export default function HomePage() {
               <article className="category-card" key={c.id} style={{ '--cat-accent': c.color || 'var(--color-accent)' }}>
                 <h3>{c.name}</h3>
                 {c.description && <p className="category-card-desc">{c.description}</p>}
-                <p className="category-card-count">{c.questionCount} вопросов в пуле</p>
+                <p className="category-card-count">
+                  {c.questionCount} {plural(c.questionCount, 'вопрос', 'вопроса', 'вопросов')} в пуле
+                </p>
                 {c.prepLinks?.length > 0 && (
                   <ul className="category-card-links">
                     {c.prepLinks.map((link) => (
@@ -98,35 +134,50 @@ export default function HomePage() {
         )}
       </section>
 
-      {categories && categories.length > 0 && (
+      {filledCategories.length > 0 && (
         <section className="home-start">
           <form className="start-form" onSubmit={handleStart}>
-            <h2>Начать</h2>
-            <p className="start-form-hint">Тест соберёт примерно {totalQuestions} вопросов из {categories.length} блоков.</p>
+            <header className="home-section-header">
+              <h2>Начать тест</h2>
+              <p className="start-form-hint">{estimateText}</p>
+            </header>
             <div className="field-row">
-              <label className="field">
+              <label className="field" htmlFor="firstName">
                 <span>Имя</span>
                 <input
+                  id="firstName"
+                  name="firstName"
+                  required
                   value={form.firstName}
                   onChange={(e) => setForm({ ...form, firstName: e.target.value })}
                   autoComplete="given-name"
                 />
               </label>
-              <label className="field">
+              <label className="field" htmlFor="lastName">
                 <span>Фамилия</span>
                 <input
+                  id="lastName"
+                  name="lastName"
+                  required
                   value={form.lastName}
                   onChange={(e) => setForm({ ...form, lastName: e.target.value })}
                   autoComplete="family-name"
                 />
               </label>
             </div>
-            <label className="field">
+            <label className="field" htmlFor="team">
               <span>Команда</span>
-              <input value={form.team} onChange={(e) => setForm({ ...form, team: e.target.value })} />
+              <input
+                id="team"
+                name="team"
+                required
+                value={form.team}
+                onChange={(e) => setForm({ ...form, team: e.target.value })}
+                autoComplete="organization"
+              />
             </label>
             {startError && <p className="field-error">{startError}</p>}
-            <button type="submit" className="btn btn-primary btn-large" disabled={starting}>
+            <button type="submit" className="btn btn-primary btn-large start-form-submit" disabled={starting}>
               {starting ? 'Собираем тест…' : 'Пройти тест'}
             </button>
           </form>
