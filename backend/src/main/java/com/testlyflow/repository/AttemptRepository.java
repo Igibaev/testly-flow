@@ -86,4 +86,32 @@ public interface AttemptRepository extends JpaRepository<Attempt, Long> {
         ORDER BY team ASC
         """, nativeQuery = true)
     List<Object[]> teamActivity(@Param("categoryId") Long categoryId, @Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
+
+    List<Attempt> findByFirstNameAndLastNameAndTeamOrderByStartedAtDesc(String firstName, String lastName, String team);
+
+    /**
+     * One row per distinct employee (identified by first name + last name + team, since
+     * attempts carry no login). Row shape: first_name, last_name, team, attempts_count,
+     * completed_count, avg_score, avg_time_per_question_seconds, last_attempt_at.
+     */
+    @Query(value = """
+        SELECT
+            a.first_name AS first_name,
+            a.last_name AS last_name,
+            a.team AS team,
+            COUNT(DISTINCT a.id) AS attempts_count,
+            COUNT(DISTINCT CASE WHEN a.status = 'COMPLETED' THEN a.id END) AS completed_count,
+            AVG(CASE WHEN a.status = 'COMPLETED' THEN a.score_percent END) AS avg_score,
+            (SELECT AVG(aa.time_spent_ms) / 1000.0
+                FROM attempt_answers aa
+                JOIN attempts a2 ON a2.id = aa.attempt_id
+                WHERE a2.first_name = a.first_name AND a2.last_name = a.last_name AND a2.team = a.team
+                  AND a2.status = 'COMPLETED' AND a2.timing_suspicious = false AND aa.time_spent_ms > 0
+            ) AS avg_time_per_question_seconds,
+            MAX(a.started_at) AS last_attempt_at
+        FROM attempts a
+        GROUP BY a.first_name, a.last_name, a.team
+        ORDER BY avg_time_per_question_seconds ASC NULLS LAST
+        """, nativeQuery = true)
+    List<Object[]> employeeRoster();
 }

@@ -6,6 +6,8 @@ import AdminTestsPage from './AdminTestsPage.jsx';
 import AdminAttemptsPage from './AdminAttemptsPage.jsx';
 import AdminAttemptDetailPage from './AdminAttemptDetailPage.jsx';
 import AdminMetricsPage from './AdminMetricsPage.jsx';
+import AdminEmployeesPage from './AdminEmployeesPage.jsx';
+import AdminEmployeeCardPage from './AdminEmployeeCardPage.jsx';
 
 export default function AdminApp() {
   const [authorized, setAuthorized] = useState(!!sessionStorage.getItem('adminPassword'));
@@ -65,6 +67,9 @@ export default function AdminApp() {
         <NavLink to="/admin/attempts" className={({ isActive }) => (isActive ? 'active' : '')}>
           Попытки
         </NavLink>
+        <NavLink to="/admin/employees" className={({ isActive }) => (isActive ? 'active' : '')}>
+          Сотрудники
+        </NavLink>
         <NavLink to="/admin/metrics" className={({ isActive }) => (isActive ? 'active' : '')}>
           Метрики
         </NavLink>
@@ -75,6 +80,8 @@ export default function AdminApp() {
         <Route path="tests" element={<AdminTestsPage />} />
         <Route path="attempts" element={<AdminAttemptsPage />} />
         <Route path="attempts/:attemptId" element={<AdminAttemptDetailPage />} />
+        <Route path="employees" element={<AdminEmployeesPage />} />
+        <Route path="employees/:firstName/:lastName/:team" element={<AdminEmployeeCardPage />} />
         <Route path="metrics" element={<AdminMetricsPage />} />
       </Routes>
     </div>

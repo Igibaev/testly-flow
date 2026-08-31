@@ -36,3 +36,10 @@ export const getMetrics = (params = {}) => {
   const qs = query.toString();
   return api.get(`/admin/metrics${qs ? `?${qs}` : ''}`, { admin: true });
 };
+
+export const listEmployees = () => api.get('/admin/employees', { admin: true });
+
+export const getEmployeeCard = (firstName, lastName, team) => {
+  const query = new URLSearchParams({ firstName, lastName, team });
+  return api.get(`/admin/employees/card?${query.toString()}`, { admin: true });
+};
