@@ -1,24 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listAdminTests, searchAttempts } from '../../api/admin';
+import { searchAttempts } from '../../api/admin';
 
 export default function AdminAttemptsPage() {
-  const [tests, setTests] = useState([]);
-  const [testId, setTestId] = useState('');
   const [team, setTeam] = useState('');
   const [page, setPage] = useState(0);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    listAdminTests().then(setTests).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    searchAttempts({ testId: testId || undefined, team: team || undefined, page })
+    searchAttempts({ team: team || undefined, page })
       .then(setData)
       .catch((e) => setError(e.message));
-  }, [testId, team, page]);
+  }, [team, page]);
 
   const handleFilterChange = (setter) => (e) => {
     setter(e.target.value);
@@ -30,14 +24,6 @@ export default function AdminAttemptsPage() {
       <h1>Попытки прохождения</h1>
 
       <div className="filters-row">
-        <select value={testId} onChange={handleFilterChange(setTestId)}>
-          <option value="">Все тесты</option>
-          {tests.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.title}
-            </option>
-          ))}
-        </select>
         <input placeholder="Команда" value={team} onChange={handleFilterChange(setTeam)} />
       </div>
 
@@ -52,10 +38,10 @@ export default function AdminAttemptsPage() {
               <tr>
                 <th>Участник</th>
                 <th>Команда</th>
-                <th>Тест</th>
                 <th>Статус</th>
                 <th>Балл</th>
                 <th>Начало</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -67,10 +53,10 @@ export default function AdminAttemptsPage() {
                     </Link>
                   </td>
                   <td>{a.team}</td>
-                  <td>{a.testTitle}</td>
                   <td>{a.status === 'COMPLETED' ? 'Завершена' : 'В процессе'}</td>
                   <td>{a.scorePercent != null ? `${a.scorePercent}%` : '—'}</td>
                   <td>{new Date(a.startedAt).toLocaleString()}</td>
+                  <td>{a.timingSuspicious && <span title="Тайминги вызывают сомнение">⚠</span>}</td>
                 </tr>
               ))}
             </tbody>

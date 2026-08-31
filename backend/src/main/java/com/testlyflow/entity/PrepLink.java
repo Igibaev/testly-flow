@@ -11,8 +11,8 @@ public class PrepLink {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "test_id", nullable = false)
-    private Test test;
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
 
     @Column(nullable = false, length = 500)
     private String title;
@@ -31,12 +31,12 @@ public class PrepLink {
         this.id = id;
     }
 
-    public Test getTest() {
-        return test;
+    public Category getCategory() {
+        return category;
     }
 
-    public void setTest(Test test) {
-        this.test = test;
+    public void setCategory(Category category) {
+        this.category = category;
     }
 
     public String getTitle() {

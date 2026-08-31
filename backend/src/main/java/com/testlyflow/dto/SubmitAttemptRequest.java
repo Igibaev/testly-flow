@@ -1,11 +1,13 @@
 package com.testlyflow.dto;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
-
 import java.util.List;
 
 public record SubmitAttemptRequest(
-        @NotEmpty(message = "нет ни одного ответа") @Valid List<AnswerSubmission> answers
+        List<AnswerSubmission> answers,
+        List<TimingSubmission> timings
 ) {
+    public SubmitAttemptRequest {
+        answers = answers != null ? answers : List.of();
+        timings = timings != null ? timings : List.of();
+    }
 }

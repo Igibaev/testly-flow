@@ -1,18 +1,14 @@
 package com.testlyflow.service;
 
 import com.testlyflow.dto.AdminTestSummaryDto;
-import com.testlyflow.dto.PrepLinkUpsertRequest;
 import com.testlyflow.dto.UploadTestResponse;
-import com.testlyflow.entity.PrepLink;
+import com.testlyflow.entity.Category;
 import com.testlyflow.entity.Question;
 import com.testlyflow.entity.QuestionOption;
 import com.testlyflow.entity.Test;
-import com.testlyflow.exception.NotFoundException;
 import com.testlyflow.parser.MarkdownTestParser;
 import com.testlyflow.parser.ParsedQuestion;
 import com.testlyflow.parser.ParsedTestResult;
-import com.testlyflow.repository.AttemptRepository;
-import com.testlyflow.repository.PrepLinkRepository;
 import com.testlyflow.repository.TestRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,22 +23,21 @@ import java.util.List;
 public class AdminTestService {
 
     private final TestRepository testRepository;
-    private final PrepLinkRepository prepLinkRepository;
-    private final AttemptRepository attemptRepository;
     private final MarkdownTestParser parser;
+    private final CategoryService categoryService;
 
     public AdminTestService(TestRepository testRepository,
-                             PrepLinkRepository prepLinkRepository,
-                             AttemptRepository attemptRepository,
-                             MarkdownTestParser parser) {
+                             MarkdownTestParser parser,
+                             CategoryService categoryService) {
         this.testRepository = testRepository;
-        this.prepLinkRepository = prepLinkRepository;
-        this.attemptRepository = attemptRepository;
         this.parser = parser;
+        this.categoryService = categoryService;
     }
 
     @Transactional
-    public UploadTestResponse uploadTest(MultipartFile file, String titleParam, List<PrepLinkUpsertRequest> prepLinks) {
+    public UploadTestResponse uploadTest(MultipartFile file, String titleParam,
+                                          Long categoryId, String newCategoryName,
+                                          String newCategoryDescription, String newCategoryColor) {
         String content;
         try {
             content = new String(file.getBytes(), StandardCharsets.UTF_8);
@@ -58,12 +53,18 @@ public class AdminTestService {
                     "Не указано название теста: передайте параметр title или добавьте заголовок \"# ...\" в начало файла");
         }
 
+        CategoryService.CategoryResolution resolution =
+                categoryService.resolveForUpload(categoryId, newCategoryName, newCategoryDescription, newCategoryColor);
+        Category category = resolution.category();
+
         Test test = new Test();
         test.setTitle(title);
+        test.setCategory(category);
 
         for (ParsedQuestion pq : parsed.getQuestions()) {
             Question question = new Question();
             question.setTest(test);
+            question.setCategory(category);
             question.setNumber(pq.getNumber());
             question.setText(pq.getText());
             question.setCorrectOption(pq.getCorrectOption());
@@ -77,25 +78,14 @@ public class AdminTestService {
             test.getQuestions().add(question);
         }
 
-        if (prepLinks != null) {
-            int order = 0;
-            for (PrepLinkUpsertRequest linkRequest : prepLinks) {
-                PrepLink link = new PrepLink();
-                link.setTest(test);
-                link.setTitle(linkRequest.title());
-                link.setUrl(linkRequest.url());
-                link.setSortOrder(order++);
-                test.getPrepLinks().add(link);
-            }
-        }
-
         test = testRepository.save(test);
 
         AdminTestSummaryDto summary = new AdminTestSummaryDto(
                 test.getId(), test.getTitle(), test.getDescription(),
-                test.getQuestions().size(), 0L, test.getCreatedAt());
+                category.getId(), category.getName(), test.getQuestions().size(), test.getCreatedAt());
 
-        return new UploadTestResponse(summary, parsed.getWarnings());
+        return new UploadTestResponse(summary, category.getId(), category.getName(), resolution.created(),
+                test.getQuestions().size(), parsed.getWarnings());
     }
 
     @Transactional(readOnly = true)
@@ -105,27 +95,10 @@ public class AdminTestService {
                         test.getId(),
                         test.getTitle(),
                         test.getDescription(),
+                        test.getCategory().getId(),
+                        test.getCategory().getName(),
                         test.getQuestions().size(),
-                        attemptRepository.countByTestId(test.getId()),
                         test.getCreatedAt()))
                 .toList();
-    }
-
-    @Transactional
-    public void updatePrepLinks(Long testId, List<PrepLinkUpsertRequest> links) {
-        Test test = testRepository.findById(testId)
-                .orElseThrow(() -> new NotFoundException("Тест с id=" + testId + " не найден"));
-
-        prepLinkRepository.deleteByTestId(testId);
-
-        int order = 0;
-        for (PrepLinkUpsertRequest linkRequest : links) {
-            PrepLink link = new PrepLink();
-            link.setTest(test);
-            link.setTitle(linkRequest.title());
-            link.setUrl(linkRequest.url());
-            link.setSortOrder(order++);
-            prepLinkRepository.save(link);
-        }
     }
 }

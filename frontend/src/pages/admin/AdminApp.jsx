@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Route, Routes, Navigate } from 'react-router-dom';
 import { checkAdminPassword } from '../../api/admin';
+import AdminCategoriesPage from './AdminCategoriesPage.jsx';
 import AdminTestsPage from './AdminTestsPage.jsx';
 import AdminAttemptsPage from './AdminAttemptsPage.jsx';
 import AdminAttemptDetailPage from './AdminAttemptDetailPage.jsx';
@@ -55,8 +56,11 @@ export default function AdminApp() {
   return (
     <div>
       <nav className="admin-nav">
+        <NavLink to="/admin/categories" className={({ isActive }) => (isActive ? 'active' : '')}>
+          Категории
+        </NavLink>
         <NavLink to="/admin/tests" className={({ isActive }) => (isActive ? 'active' : '')}>
-          Тесты
+          Загрузка вопросов
         </NavLink>
         <NavLink to="/admin/attempts" className={({ isActive }) => (isActive ? 'active' : '')}>
           Попытки
@@ -66,7 +70,8 @@ export default function AdminApp() {
         </NavLink>
       </nav>
       <Routes>
-        <Route path="/" element={<Navigate to="tests" replace />} />
+        <Route path="/" element={<Navigate to="categories" replace />} />
+        <Route path="categories" element={<AdminCategoriesPage />} />
         <Route path="tests" element={<AdminTestsPage />} />
         <Route path="attempts" element={<AdminAttemptsPage />} />
         <Route path="attempts/:attemptId" element={<AdminAttemptDetailPage />} />

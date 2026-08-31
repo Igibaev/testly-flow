@@ -22,9 +22,63 @@ docker-compose up --build
 
 Данные PostgreSQL сохраняются в именованном volume `pgdata` и переживают `docker-compose down` / `up`.
 
-## Формат MD-файла теста
+## Итерация 2: категории, пошаговое прохождение, тайминги, обратная связь
 
-Один файл содержит и вопросы, и ключ ответов. Пример — [`sample-test.md`](./sample-test.md).
+Это вторая итерация продукта (промт — [`IMPROVED_PROMPT_V2.md`](./IMPROVED_PROMPT_V2.md), базовый контекст — [`IMPROVED_PROMPT.md`](./IMPROVED_PROMPT.md)). Ключевые изменения относительно первой версии:
+
+1. **Категории вопросов.** Загруженный MD-файл — это пул вопросов внутри категории (блока), а не самостоятельный тест. Сотрудник больше не выбирает «тест» — он видит блоки (`GET /api/categories`) и нажимает одну кнопку «Пройти тест».
+2. **Динамическая сборка попытки.** `POST /api/attempts/start` на старте случайно выбирает 10–15 (настраивается) вопросов из каждой непустой категории и фиксирует состав в БД сразу — состав не пересобирается при перезагрузке страницы.
+3. **Пошаговое прохождение.** Один вопрос на экране, свободная навигация по всем вопросам через боковой навигатор, автосохранение каждого ответа, тайминг по вопросам и категориям.
+4. **Мотивирующая обратная связь.** После завершения — не голый процент, а поддерживающий отклик по уровням (`GROWTH/SOLID/STRONG/EXEMPLARY`) и список «На что посмотреть» со ссылками на подготовительные материалы.
+5. **Без подсветки правильных ответов.** На странице результата верные ответы не выделяются; по умолчанию показываются только ошибки.
+6. **Редизайн UI** по принципам когнитивной нагрузки, снижения тревожности и мотивации через прогресс (см. раздел 6 промта).
+
+### ⚠️ Деструктивная миграция `V3__categories.sql`
+
+Схема вопросов меняется так, что старые записи не могут быть перенесены осмысленно (у `tests`/`questions` появляется обязательный `category_id`, `prep_links` переезжают с `test_id` на `category_id`, таблица `metrics` упраздняется). Поэтому `V3__categories.sql` **очищает** `tests`, `questions`, `question_options`, `attempts`, `attempt_answers`, `prep_links`, `metrics` (`TRUNCATE ... CASCADE`) перед добавлением новых `NOT NULL`-колонок. Это осознанное решение итерации 2, а не побочный эффект — если в БД есть данные, которые нужно сохранить, снимите бэкап перед обновлением. Существующие миграции (`V1`, `V2`) не редактировались.
+
+Отдельно `V4__question_timings.sql` добавляет тайминги ответов (`time_spent_ms`, `display_number`, `answered_at`, `visits_count`) и флаг `attempts.timing_suspicious` — без потери данных.
+
+### Модель данных категорий и попыток
+
+- `categories` — блок вопросов: `name`/`slug` (slug генерируется транслитерацией), `description`, `color` (акцент для UI), `sort_order`, необязательные `questions_min`/`questions_max` (переопределяют глобальный диапазон выборки для конкретной категории).
+- `tests` — партия загрузки (административная сущность: один MD-файл = одна запись), всегда привязана к категории. В интерфейсе сотрудника не отображается.
+- `questions.category_id` — обязательная связь вопроса с категорией (независимо от того, из какой партии загрузки он пришёл).
+- Диапазон выборки на категорию задаётся полями `categories.questions_min`/`questions_max` с fallback на глобальные настройки `testly.sampling.questions-per-category-min/max` (см. `application.yml`) — так решение "где хранить переопределение" осталось на уровне категории, а не отдельной таблицы настроек.
+- `attempts` больше не ссылается на `tests` — одна попытка теперь может включать вопросы из нескольких категорий/партий загрузки. Агрегатные метрики (`starts/completed/abandoned/avgDuration/scoreDistribution/teamActivity`) считаются "на лету" прямыми запросами к `attempts`/`attempt_answers`, поэтому отдельная инкрементальная таблица `metrics` из итерации 1 упразднена (см. `V3__categories.sql`).
+- `attempt_answers` создаются **сразу на старте попытки** — по одной строке на выбранный вопрос, с `selected_option = NULL`. Это фиксирует состав попытки: `GET /api/attempts/{id}` всегда возвращает тот же набор вопросов, даже после перезагрузки страницы, пока попытка не завершена (`status = IN_PROGRESS`).
+
+### Настройки выборки, таймингов и обратной связи
+
+```yaml
+testly:
+  sampling:
+    questions-per-category-min: 10   # TESTLY_QUESTIONS_PER_CATEGORY_MIN
+    questions-per-category-max: 15   # TESTLY_QUESTIONS_PER_CATEGORY_MAX
+    shuffle-questions: false         # TESTLY_SHUFFLE_QUESTIONS — false = вопросы идут блоками по категориям
+  metrics:
+    min-samples: 5                   # TESTLY_METRICS_MIN_SAMPLES — порог для рейтинга самых долгих/быстрых вопросов
+  timing:
+    max-time-spent-ms: 21600000      # TESTLY_MAX_TIME_SPENT_MS — потолок накопленного времени на вопрос (6 часов)
+    suspicious-overrun-ratio: 0.10   # TESTLY_SUSPICIOUS_OVERRUN_RATIO — порог для timing_suspicious
+  feedback:
+    tier-thresholds:
+      solid: 50                      # TESTLY_TIER_SOLID
+      strong: 75                     # TESTLY_TIER_STRONG
+      exemplary: 90                  # TESTLY_TIER_EXEMPLARY
+```
+
+Тексты обратной связи (заголовки/сообщения на каждый уровень, по 3 варианта) вынесены в `backend/src/main/resources/feedback-messages.yml` — редактируются без пересборки Java-кода (только рестарт сервиса).
+
+### Как измеряется и валидируется время
+
+На клиенте таймер на вопрос стартует при показе вопроса и паузится по `document.visibilitychange` (переключение вкладки не засчитывается). Накопленное время отправляется вместе с каждым изменением ответа (`PUT /api/attempts/{id}/answers/{questionId}`, поле — **абсолютное накопленное значение**, а не дельта — повторная отправка не удваивает время) и дополнительно при уходе с вопроса и перед закрытием вкладки (`fetch(..., {keepalive: true})`).
+
+На сервере это не источник истины о честности, а метрика — значения санитизируются (отрицательные → 0, выше потолка → потолок), а если сумма таймингов по попытке превышает её реальную длительность (`finished_at - started_at`) более чем на 10%, попытка помечается `timing_suspicious = true`: её тайминги исключаются из метрик времени (`GET /api/admin/metrics`), но баллы учитываются как обычно.
+
+## Формат MD-файла с вопросами
+
+Формат не изменился между итерациями. Один файл содержит и вопросы, и ключ ответов — категория вопросам присваивается на уровне загрузки (параметр запроса), а не в самом файле. Пример — [`sample-test.md`](./sample-test.md).
 
 **Секция вопросов:**
 
@@ -49,7 +103,7 @@ docker-compose up --build
 | 2 | Б | 4 | А |
 ```
 
-Название теста берётся из параметра `title` при загрузке либо из первого заголовка `# ...` в начале файла.
+Название загрузки берётся из параметра `title` либо из первого заголовка `# ...` в начале файла.
 
 ## REST API
 
@@ -59,53 +113,61 @@ docker-compose up --build
 
 | Метод | Путь | Описание |
 |---|---|---|
-| GET | `/api/tests` | Список тестов |
-| GET | `/api/tests/{id}` | Тест: описание, подготовительные ссылки, вопросы (без правильных ответов) |
-| POST | `/api/tests/{id}/attempts/start` | Начать попытку: `{firstName, lastName, team}` |
-| POST | `/api/attempts/{attemptId}/submit` | Завершить попытку: `{answers: [{questionId, selectedOption}]}` |
+| GET | `/api/categories` | Витрина блоков: `[{id, name, description, color, questionCount, prepLinks}]` |
+| POST | `/api/attempts/start` | Собрать и начать попытку: `{firstName, lastName, team}` — без правильных ответов |
+| GET | `/api/attempts/{id}` | Состав попытки и уже сохранённые ответы (только для `IN_PROGRESS`, иначе `409`) |
+| PUT | `/api/attempts/{id}/answers/{questionId}` | Сохранить/снять ответ на вопрос: `{selectedOption, timeSpentMs}` → `204`, без правильности |
+| POST | `/api/attempts/{id}/submit` | Завершить попытку: `{answers: [{questionId, selectedOption}], timings: [{questionId, timeSpentMs}]}` — оба поля опциональны (финальная синхронизация) |
 
 ### Админские эндпоинты (заголовок `X-Admin-Password`)
 
 | Метод | Путь | Описание |
 |---|---|---|
-| GET | `/api/admin/tests` | Список тестов со статистикой |
-| POST | `/api/admin/tests` | Загрузка теста (multipart: `file`, `title`, `prepLinkTitles[]`, `prepLinkUrls[]`) |
-| PUT | `/api/admin/tests/{id}/prep-links` | Обновить подготовительные ссылки: `{links: [{title, url}]}` |
-| GET | `/api/admin/attempts?testId=&team=&page=&size=` | Список попыток с фильтрами |
-| GET | `/api/admin/attempts/{id}` | Детализация попытки |
-| GET | `/api/admin/metrics?testId=` | Метрики (по тесту или по всем) |
+| GET | `/api/admin/categories` | Список категорий со статистикой |
+| POST | `/api/admin/categories` | Создать категорию без загрузки файла |
+| PUT | `/api/admin/categories/{id}` | Изменить категорию |
+| DELETE | `/api/admin/categories/{id}` | Удалить (только если в ней нет вопросов, иначе `409`) |
+| PUT | `/api/admin/categories/{id}/prep-links` | Обновить подготовительные ссылки категории: `{links: [{title, url}]}` |
+| GET | `/api/admin/tests` | Список загруженных файлов (партий) со статистикой |
+| POST | `/api/admin/tests` | Загрузка файла (multipart: `file`, `title`, и **ровно один** способ указания категории: `categoryId` **или** `newCategoryName`+`newCategoryDescription`+`newCategoryColor`) |
+| GET | `/api/admin/attempts?team=&page=&size=` | Список попыток с фильтром по команде |
+| GET | `/api/admin/attempts/{id}` | Детализация попытки: ответы с таймингом и категорией, самый долгий вопрос, разбивка времени по блокам |
+| GET | `/api/admin/metrics?categoryId=&from=&to=` | Метрики: базовые агрегаты + время на вопрос (самые долгие/быстрые) + метрики по категориям + рейтинг категорий |
 
 ### Примеры curl
 
 ```bash
-# Загрузить тест
+# Создать категорию вместе с загрузкой вопросов
 curl -X POST http://localhost:8080/api/admin/tests \
   -H "X-Admin-Password: admin" \
   -F "file=@sample-test.md" \
-  -F "title=Тест по продукту АРМК" \
-  -F "prepLinkTitles=Документация" \
-  -F "prepLinkUrls=https://example.com/docs"
+  -F "newCategoryName=Флоу гашения" \
+  -F "newCategoryColor=#c2410c"
 
-# Список тестов
-curl http://localhost:8080/api/tests
+# Витрина категорий
+curl http://localhost:8080/api/categories
 
-# Начать попытку
-curl -X POST http://localhost:8080/api/tests/1/attempts/start \
+# Начать попытку (соберёт вопросы из всех непустых категорий)
+curl -X POST http://localhost:8080/api/attempts/start \
   -H "Content-Type: application/json" \
   -d '{"firstName":"Иван","lastName":"Иванов","team":"Alpha"}'
 
+# Сохранить ответ на вопрос
+curl -X PUT http://localhost:8080/api/attempts/1/answers/1 \
+  -H "Content-Type: application/json" \
+  -d '{"selectedOption":"В","timeSpentMs":14200}'
+
 # Завершить попытку
 curl -X POST http://localhost:8080/api/attempts/1/submit \
-  -H "Content-Type: application/json" \
-  -d '{"answers":[{"questionId":1,"selectedOption":"В"},{"questionId":2,"selectedOption":"Б"}]}'
+  -H "Content-Type: application/json" -d '{}'
 
-# Метрики
-curl http://localhost:8080/api/admin/metrics -H "X-Admin-Password: admin"
+# Метрики по конкретной категории
+curl "http://localhost:8080/api/admin/metrics?categoryId=1" -H "X-Admin-Password: admin"
 ```
 
 ## Схема БД
 
-`tests` → `questions` → `question_options`; `tests` → `prep_links`; `tests` → `attempts` → `attempt_answers`; `tests` → `metrics` (агрегаты по тесту). Правильный ответ хранится прямо в `questions.correct_option`.
+`categories` → `questions` → `question_options`; `categories` → `tests` (партии загрузки, административная сущность); `categories` → `prep_links`; попытки не привязаны к конкретной категории или партии — `attempts` → `attempt_answers` → `questions`, и через эту связь считаются метрики по категориям. Правильный ответ хранится в `questions.correct_option` и никогда не попадает в ответы API до `POST /api/attempts/{id}/submit`.
 
 ## Локальная разработка без Docker
 
@@ -129,4 +191,6 @@ cd backend
 mvn test
 ```
 
-Юнит-тесты покрывают парсер MD-файла (несколько пар в строке ключа, неполная строка, отсутствующие/лишние ответы) и подсчёт баллов.
+Юнит-тесты покрывают: парсер MD-файла и привязку вопросов к категории при загрузке; алгоритм сборки попытки (диапазон `[min, max]`, нехватка вопросов, пропуск пустых категорий, отсутствие дублей, `409` при полном отсутствии вопросов); тайминги (перезапись, а не суммирование накопленного времени; санитизация отрицательных/чрезмерных значений; флаг `timing_suspicious`); метрики (порог `min-samples`, сортировка самых долгих/быстрых вопросов, `excludedSuspiciousAttempts`); правила обратной связи (границы порогов 49/50/74/75/89/90, состав `focusAreas`); контракт безопасности (ответы во время прохождения не содержат правильный вариант или признак корректности).
+
+Frontend-автотестов нет (в проекте не было тестового рантайма, и промт не требует вводить его ради одной проверки) — вручную это проверяется так: открыть `/attempt/:id`, выбрать вариант ответа и убедиться в сетевой панели браузера, что сразу уходит `PUT /api/attempts/{id}/answers/{questionId}`; затем свернуть вкладку (`Ctrl+Tab`/переключить приложение) на несколько секунд и вернуться — время на вопросе (видно в детализации попытки в админке) не должно вырасти на время, пока вкладка была неактивна.

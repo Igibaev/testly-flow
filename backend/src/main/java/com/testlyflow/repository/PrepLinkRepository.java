@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface PrepLinkRepository extends JpaRepository<PrepLink, Long> {
 
-    List<PrepLink> findByTestIdOrderBySortOrderAsc(Long testId);
+    List<PrepLink> findByCategoryIdOrderBySortOrderAsc(Long categoryId);
 
-    void deleteByTestId(Long testId);
+    void deleteByCategoryId(Long categoryId);
 }

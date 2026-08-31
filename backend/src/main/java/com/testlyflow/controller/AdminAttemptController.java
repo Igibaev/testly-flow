@@ -17,11 +17,10 @@ public class AdminAttemptController {
     }
 
     @GetMapping
-    public PageResponse<AdminAttemptSummaryDto> search(@RequestParam(required = false) Long testId,
-                                                         @RequestParam(required = false) String team,
+    public PageResponse<AdminAttemptSummaryDto> search(@RequestParam(required = false) String team,
                                                          @RequestParam(defaultValue = "0") int page,
                                                          @RequestParam(defaultValue = "20") int size) {
-        return adminAttemptService.search(testId, team, page, size);
+        return adminAttemptService.search(team, page, size);
     }
 
     @GetMapping("/{id}")

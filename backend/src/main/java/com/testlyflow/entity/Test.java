@@ -5,6 +5,11 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * An uploaded file's batch of questions. Purely an administrative record now --
+ * employees never see "tests" directly, only {@link Category} and dynamically
+ * assembled attempts.
+ */
 @Entity
 @Table(name = "tests")
 public class Test {
@@ -12,6 +17,10 @@ public class Test {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
 
     @Column(nullable = false, length = 500)
     private String title;
@@ -26,10 +35,6 @@ public class Test {
     @OrderBy("number ASC")
     private List<Question> questions = new ArrayList<>();
 
-    @OneToMany(mappedBy = "test", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("sortOrder ASC")
-    private List<PrepLink> prepLinks = new ArrayList<>();
-
     @PrePersist
     void prePersist() {
         if (createdAt == null) {
@@ -43,6 +48,14 @@ public class Test {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Category getCategory() {
+        return category;
+    }
+
+    public void setCategory(Category category) {
+        this.category = category;
     }
 
     public String getTitle() {
@@ -71,9 +84,5 @@ public class Test {
 
     public List<Question> getQuestions() {
         return questions;
-    }
-
-    public List<PrepLink> getPrepLinks() {
-        return prepLinks;
     }
 }

@@ -1,6 +1,6 @@
 const BASE_URL = '/api';
 
-async function request(path, { method = 'GET', body, admin = false, isMultipart = false } = {}) {
+async function request(path, { method = 'GET', body, admin = false, isMultipart = false, keepalive = false } = {}) {
   const headers = {};
   if (!isMultipart) {
     headers['Content-Type'] = 'application/json';
@@ -12,6 +12,7 @@ async function request(path, { method = 'GET', body, admin = false, isMultipart 
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
     headers,
+    keepalive,
     body: isMultipart ? body : body ? JSON.stringify(body) : undefined,
   });
 
@@ -37,4 +38,21 @@ export const api = {
   get: (path, opts) => request(path, { ...opts, method: 'GET' }),
   post: (path, body, opts) => request(path, { ...opts, method: 'POST', body }),
   put: (path, body, opts) => request(path, { ...opts, method: 'PUT', body }),
+  del: (path, opts) => request(path, { ...opts, method: 'DELETE' }),
 };
+
+/**
+ * Fire-and-forget flush of an answer's accumulated timing right before the tab closes.
+ * The answers endpoint is PUT, and `navigator.sendBeacon` only ever sends POST, so this
+ * relies on `fetch(..., { keepalive: true })`, which Chrome/Firefox/Safari all keep alive
+ * past `beforeunload`/`visibilitychange` for small bodies.
+ */
+export function putAnswerKeepalive(attemptId, questionId, body) {
+  const url = `${BASE_URL}/attempts/${attemptId}/answers/${questionId}`;
+  fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    keepalive: true,
+  }).catch(() => {});
+}

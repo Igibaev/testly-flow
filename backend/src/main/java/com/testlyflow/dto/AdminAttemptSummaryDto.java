@@ -5,8 +5,6 @@ import java.time.OffsetDateTime;
 
 public record AdminAttemptSummaryDto(
         Long id,
-        Long testId,
-        String testTitle,
         String firstName,
         String lastName,
         String team,
@@ -17,6 +15,7 @@ public record AdminAttemptSummaryDto(
         String status,
         Integer correctCount,
         Integer totalQuestions,
-        BigDecimal scorePercent
+        BigDecimal scorePercent,
+        boolean timingSuspicious
 ) {
 }

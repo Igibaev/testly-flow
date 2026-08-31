@@ -14,10 +14,6 @@ public class Attempt {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "test_id", nullable = false)
-    private Test test;
-
     @Column(name = "first_name", nullable = false, length = 200)
     private String firstName;
 
@@ -52,7 +48,11 @@ public class Attempt {
     @Column(name = "score_percent", precision = 5, scale = 2)
     private BigDecimal scorePercent;
 
+    @Column(name = "timing_suspicious", nullable = false)
+    private boolean timingSuspicious = false;
+
     @OneToMany(mappedBy = "attempt", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("displayNumber ASC")
     private List<AttemptAnswer> answers = new ArrayList<>();
 
     @PrePersist
@@ -68,14 +68,6 @@ public class Attempt {
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public Test getTest() {
-        return test;
-    }
-
-    public void setTest(Test test) {
-        this.test = test;
     }
 
     public String getFirstName() {
@@ -168,5 +160,13 @@ public class Attempt {
 
     public List<AttemptAnswer> getAnswers() {
         return answers;
+    }
+
+    public boolean isTimingSuspicious() {
+        return timingSuspicious;
+    }
+
+    public void setTimingSuspicious(boolean timingSuspicious) {
+        this.timingSuspicious = timingSuspicious;
     }
 }

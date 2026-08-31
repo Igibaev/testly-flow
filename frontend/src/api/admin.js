@@ -7,12 +7,19 @@ export const listAdminTests = () => api.get('/admin/tests', { admin: true });
 export const uploadTest = (formData) =>
   api.post('/admin/tests', formData, { admin: true, isMultipart: true });
 
-export const updatePrepLinks = (testId, links) =>
-  api.put(`/admin/tests/${testId}/prep-links`, { links }, { admin: true });
+export const listAdminCategories = () => api.get('/admin/categories', { admin: true });
+
+export const createCategory = (payload) => api.post('/admin/categories', payload, { admin: true });
+
+export const updateCategory = (id, payload) => api.put(`/admin/categories/${id}`, payload, { admin: true });
+
+export const deleteCategory = (id) => api.del(`/admin/categories/${id}`, { admin: true });
+
+export const updateCategoryPrepLinks = (categoryId, links) =>
+  api.put(`/admin/categories/${categoryId}/prep-links`, { links }, { admin: true });
 
 export const searchAttempts = (params = {}) => {
   const query = new URLSearchParams();
-  if (params.testId) query.set('testId', params.testId);
   if (params.team) query.set('team', params.team);
   query.set('page', params.page ?? 0);
   query.set('size', params.size ?? 20);
@@ -21,7 +28,11 @@ export const searchAttempts = (params = {}) => {
 
 export const getAttemptDetail = (attemptId) => api.get(`/admin/attempts/${attemptId}`, { admin: true });
 
-export const getMetrics = (testId) => {
-  const query = testId ? `?testId=${testId}` : '';
-  return api.get(`/admin/metrics${query}`, { admin: true });
+export const getMetrics = (params = {}) => {
+  const query = new URLSearchParams();
+  if (params.categoryId) query.set('categoryId', params.categoryId);
+  if (params.from) query.set('from', params.from);
+  if (params.to) query.set('to', params.to);
+  const qs = query.toString();
+  return api.get(`/admin/metrics${qs ? `?${qs}` : ''}`, { admin: true });
 };

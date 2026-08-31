@@ -6,8 +6,9 @@ public record AdminTestSummaryDto(
         Long id,
         String title,
         String description,
+        Long categoryId,
+        String categoryName,
         int questionCount,
-        long attemptsCount,
         OffsetDateTime createdAt
 ) {
 }

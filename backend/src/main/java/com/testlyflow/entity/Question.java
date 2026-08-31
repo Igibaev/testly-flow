@@ -16,6 +16,10 @@ public class Question {
     @JoinColumn(name = "test_id", nullable = false)
     private Test test;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
+
     @Column(nullable = false)
     private Integer number;
 
@@ -43,6 +47,14 @@ public class Question {
 
     public void setTest(Test test) {
         this.test = test;
+    }
+
+    public Category getCategory() {
+        return category;
+    }
+
+    public void setCategory(Category category) {
+        this.category = category;
     }
 
     public Integer getNumber() {

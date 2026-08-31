@@ -26,3 +26,19 @@ spring:
 app:
   admin:
     password: ${ADMIN_PASSWORD:admin}
+
+testly:
+  sampling:
+    questions-per-category-min: ${TESTLY_QUESTIONS_PER_CATEGORY_MIN:10}
+    questions-per-category-max: ${TESTLY_QUESTIONS_PER_CATEGORY_MAX:15}
+    shuffle-questions: ${TESTLY_SHUFFLE_QUESTIONS:false}
+  metrics:
+    min-samples: ${TESTLY_METRICS_MIN_SAMPLES:5}
+  timing:
+    max-time-spent-ms: ${TESTLY_MAX_TIME_SPENT_MS:21600000}
+    suspicious-overrun-ratio: ${TESTLY_SUSPICIOUS_OVERRUN_RATIO:0.10}
+  feedback:
+    tier-thresholds:
+      solid: ${TESTLY_TIER_SOLID:50}
+      strong: ${TESTLY_TIER_STRONG:75}
+      exemplary: ${TESTLY_TIER_EXEMPLARY:90}

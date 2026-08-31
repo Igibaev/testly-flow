@@ -8,6 +8,10 @@ public record SubmitAttemptResponse(
         int correctCount,
         int totalQuestions,
         BigDecimal scorePercent,
+        String resultTier,
+        String headline,
+        String message,
+        List<FocusAreaDto> focusAreas,
         List<AnswerDetailDto> details
 ) {
 }
