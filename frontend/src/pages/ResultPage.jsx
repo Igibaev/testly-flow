@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 const TIER_LABELS = {
@@ -13,7 +12,6 @@ export default function ResultPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const result = location.state?.result;
-  const [showAll, setShowAll] = useState(false);
 
   if (!result) {
     return (
@@ -27,7 +25,6 @@ export default function ResultPage() {
   }
 
   const wrongAnswers = result.details.filter((d) => !d.isCorrect);
-  const visibleAnswers = showAll ? result.details : wrongAnswers;
 
   return (
     <div className="result-page">
@@ -69,28 +66,19 @@ export default function ResultPage() {
 
       <section className="result-details">
         <div className="result-details-header">
-          <h2>{showAll ? 'Все ответы' : 'Разбор ошибок'}</h2>
-          {wrongAnswers.length > 0 && wrongAnswers.length < result.details.length && (
-            <button type="button" className="btn btn-ghost" onClick={() => setShowAll((v) => !v)}>
-              {showAll ? 'Показать только ошибки' : `Показать все ответы (${result.details.length})`}
-            </button>
-          )}
+          <h2>Разбор ошибок</h2>
         </div>
 
-        {wrongAnswers.length === 0 && !showAll && (
-          <p className="result-no-mistakes">Ошибок нет — можно посмотреть все ответы целиком.</p>
-        )}
+        {wrongAnswers.length === 0 && <p className="result-no-mistakes">Ошибок нет.</p>}
 
         <ul className="answer-review-list">
-          {visibleAnswers.map((d) => (
-            <li key={d.questionId} className={`answer-review-item${d.isCorrect ? '' : ' answer-review-item-wrong'}`}>
+          {wrongAnswers.map((d) => (
+            <li key={d.questionId} className="answer-review-item answer-review-item-wrong">
               <p className="answer-review-category">{d.categoryName}</p>
               <p className="answer-review-question">{d.questionText}</p>
-              {!d.isCorrect && (
-                <div className="answer-review-comparison">
-                  <p>Твой ответ: {d.selectedOption ?? '— не выбран'}</p>
-                </div>
-              )}
+              <div className="answer-review-comparison">
+                <p>Твой ответ: {d.selectedOption ?? '— не выбран'}</p>
+              </div>
             </li>
           ))}
         </ul>
