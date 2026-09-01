@@ -16,9 +16,9 @@ services:
       timeout: 5s
       retries: 10
 
-  backend:
+  app:
     build:
-      context: ./backend
+      context: .
     restart: unless-stopped
     depends_on:
       postgres:
@@ -30,15 +30,6 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
     ports:
       - "8080:8080"
-
-  frontend:
-    build:
-      context: ./frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
-    ports:
-      - "3000:80"
 
 volumes:
   pgdata:
