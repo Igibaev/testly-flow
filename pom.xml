@@ -139,6 +139,10 @@
                     <plugin>
                         <groupId>com.vaadin</groupId>
                         <artifactId>vaadin-maven-plugin</artifactId>
+                        <configuration>
+                            <ciBuild>true</ciBuild>
+                            <forceProductionBuild>true</forceProductionBuild>
+                        </configuration>
                         <executions>
                             <execution>
                                 <id>frontend</id>
