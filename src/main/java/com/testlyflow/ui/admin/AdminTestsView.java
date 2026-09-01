@@ -3,6 +3,7 @@ package com.testlyflow.ui.admin;
 import com.testlyflow.dto.AdminCategoryDto;
 import com.testlyflow.dto.AdminTestSummaryDto;
 import com.testlyflow.dto.UploadTestResponse;
+import com.testlyflow.exception.TestParsingException;
 import com.testlyflow.service.AdminTestService;
 import com.testlyflow.service.CategoryService;
 import com.testlyflow.ui.support.Formats;
@@ -50,6 +51,7 @@ public class AdminTestsView extends Div {
         this.categoryService = categoryService;
 
         errorBox.addClassName("error-box");
+        errorBox.setId("upload-error");
         errorBox.setVisible(false);
         successBox.addClassName("error-box");
         successBox.getStyle().set("background", "#eefbf3").set("color", "#166534").set("border-color", "#bbf0d0");
@@ -60,6 +62,7 @@ public class AdminTestsView extends Div {
 
         newColor.getElement().setAttribute("type", "color");
         newColor.setValue("#6d5dfc");
+        newName.setId("new-category-name");
         newName.getElement().setAttribute("placeholder", "Название новой категории");
         newDescription.getElement().setAttribute("placeholder", "Описание (необязательно)");
 
@@ -77,7 +80,8 @@ public class AdminTestsView extends Div {
         Div form = new Div();
         MemoryBuffer buffer = new MemoryBuffer();
         Upload upload = new Upload(buffer);
-        upload.setAcceptedFileTypes(".md", "text/markdown");
+        upload.setAcceptedFileTypes(".md", ".markdown", "text/markdown", "text/plain");
+        upload.setMaxFileSize(10 * 1024 * 1024);
         upload.setMaxFiles(1);
         upload.addSucceededListener(event -> {
             try {
@@ -86,6 +90,7 @@ public class AdminTestsView extends Div {
                 showError("Не удалось прочитать файл");
             }
         });
+        upload.addFileRejectedListener(event -> showError(event.getErrorMessage()));
         NativeLabel fileLabel = new NativeLabel();
         fileLabel.addClassName("form-field");
         fileLabel.add(new Span("MD-файл (вопросы + ключ ответов)"), upload);
@@ -202,6 +207,8 @@ public class AdminTestsView extends Div {
             newName.setValue("");
             newDescription.setValue("");
             reload();
+        } catch (TestParsingException e) {
+            showError(e.getMessage(), e.getDetails());
         } catch (RuntimeException e) {
             showError(e.getMessage());
         } finally {
@@ -232,7 +239,19 @@ public class AdminTestsView extends Div {
     }
 
     private void showError(String message) {
-        errorBox.setText(message);
+        showError(message, List.of());
+    }
+
+    private void showError(String message, List<String> details) {
+        errorBox.removeAll();
+        errorBox.add(new Paragraph(message));
+        if (details != null && !details.isEmpty()) {
+            UnorderedList list = new UnorderedList();
+            for (String detail : details) {
+                list.add(new ListItem(detail));
+            }
+            errorBox.add(list);
+        }
         errorBox.setVisible(true);
     }
 

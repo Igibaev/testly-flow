@@ -156,6 +156,99 @@ class MarkdownTestParserTest {
         assertThrows(TestParsingException.class, () -> parser.parse(md));
     }
 
+    @Test
+    void bindsAnswerKeyWhenHeaderRowIsOmitted() {
+        String md = """
+                **1. Q1?**
+                - А) a
+                - Б) b
+
+                **2. Q2?**
+                - А) a
+                - Б) b
+
+                ---
+
+                ## Ключ ответов
+
+                | 1 | А |
+                | 2 | Б |
+                """;
+
+        ParsedTestResult result = parser.parse(md);
+        assertEquals("А", findQuestion(result, 1).getCorrectOption());
+        assertEquals("Б", findQuestion(result, 2).getCorrectOption());
+    }
+
+    @Test
+    void bindsLatinLookalikeLettersInTheAnswerKey() {
+        String md = """
+                **1. Q1?**
+                - А) a
+                - Б) b
+                - В) c
+
+                ---
+
+                ## Ключ ответов
+
+                | № | Ответ |
+                |---|---|
+                | 1 | A |
+                """;
+
+        ParsedTestResult result = parser.parse(md);
+        assertEquals("А", findQuestion(result, 1).getCorrectOption());
+    }
+
+    @Test
+    void bindsAnswerLettersWithTrailingParen() {
+        String md = """
+                **1. Q1?**
+                - А) a
+                - В) c
+
+                ---
+
+                ## Ключ ответов
+
+                | № | Ответ |
+                |---|---|
+                | 1 | В) |
+                """;
+
+        ParsedTestResult result = parser.parse(md);
+        assertEquals("В", findQuestion(result, 1).getCorrectOption());
+    }
+
+    @Test
+    void parsesUtf8BomAndWindows1251Bytes() {
+        String md = """
+                # Title
+                **1. Q1?**
+                - А) a
+                - Б) b
+
+                ---
+
+                ## Ключ ответов
+
+                | № | Ответ |
+                |---|---|
+                | 1 | А |
+                """;
+
+        byte[] bom = new byte[3 + md.getBytes(StandardCharsets.UTF_8).length];
+        bom[0] = (byte) 0xEF;
+        bom[1] = (byte) 0xBB;
+        bom[2] = (byte) 0xBF;
+        System.arraycopy(md.getBytes(StandardCharsets.UTF_8), 0, bom, 3, md.getBytes(StandardCharsets.UTF_8).length);
+        assertEquals("А", parser.parse(bom).getQuestions().get(0).getCorrectOption());
+
+        byte[] windows1251 = md.getBytes(java.nio.charset.Charset.forName("windows-1251"));
+        assertEquals("А", parser.parse(windows1251).getQuestions().get(0).getCorrectOption());
+    }
+
     private ParsedQuestion findQuestion(ParsedTestResult result, int number) {
         return result.getQuestions().stream()
                 .filter(q -> q.getNumber() == number)

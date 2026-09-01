@@ -13,7 +13,6 @@ import com.testlyflow.repository.TestRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Service
@@ -35,8 +34,7 @@ public class AdminTestService {
     public UploadTestResponse uploadTest(byte[] fileBytes, String titleParam,
                                           Long categoryId, String newCategoryName,
                                           String newCategoryDescription, String newCategoryColor) {
-        String content = new String(fileBytes, StandardCharsets.UTF_8);
-        ParsedTestResult parsed = parser.parse(content);
+        ParsedTestResult parsed = parser.parse(fileBytes);
 
         String title = (titleParam != null && !titleParam.isBlank()) ? titleParam.trim() : parsed.getTitleFromFile();
         if (title == null || title.isBlank()) {

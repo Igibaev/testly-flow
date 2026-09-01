@@ -102,6 +102,7 @@
                     <configuration>
                         <frontendDirectory>${project.basedir}/src/main/frontend</frontendDirectory>
                         <generatedTsFolder>${project.basedir}/src/main/frontend/generated</generatedTsFolder>
+                        <nodeVersion>v22.17.1</nodeVersion>
                     </configuration>
                 </plugin>
             </plugins>

@@ -3,6 +3,8 @@ package com.testlyflow.parser;
 import com.testlyflow.exception.TestParsingException;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,9 +25,19 @@ public class MarkdownTestParser {
     private static final Pattern OPTION_PATTERN = Pattern.compile("^[-*]\\s*([А-Яа-яA-Za-z])\\)\\s*(.+?)\\s*$");
     private static final Pattern TABLE_SEPARATOR_PATTERN = Pattern.compile("^\\|?[\\s:|-]+\\|?$");
 
+    public ParsedTestResult parse(byte[] fileBytes) {
+        if (fileBytes == null || fileBytes.length == 0) {
+            throw new TestParsingException("Файл теста пуст", List.of());
+        }
+        return parse(decode(fileBytes));
+    }
+
     public ParsedTestResult parse(String content) {
         if (content == null || content.isBlank()) {
             throw new TestParsingException("Файл теста пуст", List.of());
+        }
+        if (content.charAt(0) == '\uFEFF') {
+            content = content.substring(1);
         }
 
         String[] rawLines = content.replace("\r\n", "\n").split("\n", -1);
@@ -131,8 +143,10 @@ public class MarkdownTestParser {
 
             Matcher optionMatcher = OPTION_PATTERN.matcher(line);
             if (optionMatcher.matches() && current != null) {
-                String letter = optionMatcher.group(1).toUpperCase();
-                current.addOption(letter, optionMatcher.group(2).trim());
+                String letter = normalizeAnswerLetter(optionMatcher.group(1));
+                if (letter != null) {
+                    current.addOption(letter, optionMatcher.group(2).trim());
+                }
             }
         }
 
@@ -155,13 +169,14 @@ public class MarkdownTestParser {
             if (TABLE_SEPARATOR_PATTERN.matcher(row).matches()) {
                 continue;
             }
+            List<String> cells = splitTableRow(row);
             if (!headerSkipped) {
-                // first non-separator row is the "№ | Ответ | № | Ответ ..." header — skip it
                 headerSkipped = true;
-                continue;
+                if (looksLikeAnswerKeyHeader(cells)) {
+                    continue;
+                }
             }
 
-            List<String> cells = splitTableRow(row);
             for (int i = 0; i + 1 < cells.size(); i += 2) {
                 String numberCell = cells.get(i).trim();
                 String answerCell = cells.get(i + 1).trim();
@@ -172,7 +187,11 @@ public class MarkdownTestParser {
                 if (number == null) {
                     continue;
                 }
-                result.put(number, answerCell.toUpperCase());
+                String letter = normalizeAnswerLetter(answerCell);
+                if (letter == null) {
+                    continue;
+                }
+                result.put(number, letter);
             }
         }
 
@@ -201,5 +220,86 @@ public class MarkdownTestParser {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    /**
+     * The first table row is a header ("№ | Ответ") unless it already looks like data
+     * ("1 | В"). Files copied from Excel often omit the header.
+     */
+    private boolean looksLikeAnswerKeyHeader(List<String> cells) {
+        if (cells.size() < 2) {
+            return true;
+        }
+        return tryParseInt(cells.get(0)) == null || normalizeAnswerLetter(cells.get(1)) == null;
+    }
+
+    /**
+     * Option letters in Russian tests are А/Б/В/Г. Spreadsheets and English keyboards
+     * often produce Latin lookalikes (A/B/C) or a trailing ')'.
+     */
+    static String normalizeAnswerLetter(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String value = raw.trim();
+        while (value.endsWith(")") || value.endsWith(".") || value.endsWith("．")) {
+            value = value.substring(0, value.length() - 1).trim();
+        }
+        if (value.isEmpty()) {
+            return null;
+        }
+        int cp = value.codePointAt(0);
+        if (value.offsetByCodePoints(0, 1) != value.length()) {
+            return null;
+        }
+        char upper = Character.toUpperCase((char) cp);
+        return String.valueOf(foldLatinHomoglyph(upper));
+    }
+
+    private static char foldLatinHomoglyph(char letter) {
+        return switch (letter) {
+            case 'A' -> 'А';
+            case 'B' -> 'В';
+            case 'C' -> 'С';
+            case 'E' -> 'Е';
+            case 'H' -> 'Н';
+            case 'K' -> 'К';
+            case 'M' -> 'М';
+            case 'O' -> 'О';
+            case 'P' -> 'Р';
+            case 'T' -> 'Т';
+            case 'X' -> 'Х';
+            default -> letter;
+        };
+    }
+
+    static String decode(byte[] bytes) {
+        if (startsWith(bytes, (byte) 0xEF, (byte) 0xBB, (byte) 0xBF)) {
+            return new String(bytes, 3, bytes.length - 3, StandardCharsets.UTF_8);
+        }
+        if (startsWith(bytes, (byte) 0xFF, (byte) 0xFE) || startsWith(bytes, (byte) 0xFE, (byte) 0xFF)) {
+            return new String(bytes, StandardCharsets.UTF_16);
+        }
+        String utf8 = new String(bytes, StandardCharsets.UTF_8);
+        if (!utf8.contains("\uFFFD")) {
+            return utf8;
+        }
+        String windows1251 = new String(bytes, Charset.forName("windows-1251"));
+        if (windows1251.contains("Ключ")) {
+            return windows1251;
+        }
+        return utf8;
+    }
+
+    private static boolean startsWith(byte[] bytes, byte... prefix) {
+        if (bytes.length < prefix.length) {
+            return false;
+        }
+        for (int i = 0; i < prefix.length; i++) {
+            if (bytes[i] != prefix[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 }
