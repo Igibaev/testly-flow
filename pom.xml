@@ -91,6 +91,21 @@
     </dependencies>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>com.vaadin</groupId>
+                    <artifactId>vaadin-maven-plugin</artifactId>
+                    <version>${vaadin.version}</version>
+                    <!-- Vaadin 24.3 defaults to ${project.basedir}/frontend. Theme lives under
+                         src/main/frontend (24.4+ layout) so the plugin must be pointed there. -->
+                    <configuration>
+                        <frontendDirectory>${project.basedir}/src/main/frontend</frontendDirectory>
+                        <generatedTsFolder>${project.basedir}/src/main/frontend/generated</generatedTsFolder>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -107,14 +122,27 @@
             <properties>
                 <vaadin.productionMode>true</vaadin.productionMode>
             </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>com.vaadin</groupId>
+                    <artifactId>vaadin-core</artifactId>
+                    <exclusions>
+                        <exclusion>
+                            <groupId>com.vaadin</groupId>
+                            <artifactId>vaadin-dev</artifactId>
+                        </exclusion>
+                    </exclusions>
+                </dependency>
+            </dependencies>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>com.vaadin</groupId>
                         <artifactId>vaadin-maven-plugin</artifactId>
-                        <version>${vaadin.version}</version>
                         <executions>
                             <execution>
+                                <id>frontend</id>
+                                <phase>compile</phase>
                                 <goals>
                                     <goal>prepare-frontend</goal>
                                     <goal>build-frontend</goal>

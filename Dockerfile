@@ -1,9 +1,10 @@
 FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /build
 COPY pom.xml .
-RUN mvn -B -Pproduction dependency:go-offline
 COPY src ./src
-RUN mvn -B -Pproduction clean package -DskipTests
+# Production frontend bundle needs network: the plugin downloads Node into ~/.vaadin
+# and runs npm. Maven go-offline cannot cache that, so this is a single package step.
+RUN mvn -B -Pproduction package -DskipTests
 
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app

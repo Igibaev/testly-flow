@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+target
+node_modules
+frontend
+*.md
+.idea
+.vscode
+*.iml
