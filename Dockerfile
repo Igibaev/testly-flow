@@ -1,13 +1,14 @@
-FROM maven:3.9-eclipse-temurin-17 AS build
+FROM gradle:8.14.3-jdk17 AS build
 WORKDIR /build
-COPY pom.xml .
+COPY settings.gradle build.gradle gradlew ./
+COPY gradle ./gradle
 COPY src ./src
 # Production frontend bundle needs network: the plugin downloads Node into ~/.vaadin
-# and runs npm. Maven go-offline cannot cache that, so this is a single package step.
-RUN mvn -B -Pproduction package -DskipTests
+# and runs npm. Gradle go-offline cannot cache that, so this is a single build step.
+RUN ./gradlew -Pvaadin.productionMode=true bootJar --no-daemon
 
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
-COPY --from=build /build/target/*.jar app.jar
+COPY --from=build /build/build/libs/*.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -4,7 +4,7 @@
 
 ## Стек
 
-- **Приложение**: один Maven-модуль, Java 17, Spring Boot 3.2.5 (Web, Data JPA, Validation), Vaadin Flow 24.3 (UI целиком на Java), Flyway, PostgreSQL driver.
+- **Приложение**: один Gradle-модуль, Java 17, Spring Boot 3.2.5 (Web, Data JPA, Validation), Vaadin Flow 24.3 (UI целиком на Java), Flyway, PostgreSQL driver.
 - **БД**: PostgreSQL 16.
 - **Контейнеризация**: Docker + docker-compose, два сервиса: `postgres` и `app`.
 
@@ -198,17 +198,17 @@ curl "http://localhost:8080/api/admin/metrics?categoryId=1" -H "X-Admin-Password
 ## Локальная разработка без Docker
 
 ```bash
-mvn spring-boot:run
+./gradlew bootRun
 # нужен локальный PostgreSQL, см. SPRING_DATASOURCE_* в application.yml
 # UI и API: http://localhost:8080
 ```
 
-Для production-бандла Vaadin (как в Docker): `mvn -Pproduction package`. Плагин сам скачивает Node в `~/.vaadin`; npm-скриптов в репозитории нет.
+Для production-бандла Vaadin (как в Docker): `./gradlew -Pvaadin.productionMode=true bootJar`. Плагин сам скачивает Node в `~/.vaadin`; npm-скриптов в репозитории нет.
 
 ## Тесты
 
 ```bash
-mvn test
+./gradlew test
 ```
 
 Юнит-тесты покрывают: парсер MD-файла и привязку вопросов к категории при загрузке; алгоритм сборки попытки (диапазон `[min, max]`, нехватка вопросов, пропуск пустых категорий, отсутствие дублей, `409` при полном отсутствии вопросов); тайминги (перезапись, а не суммирование накопленного времени; санитизация отрицательных/чрезмерных значений; флаг `timing_suspicious`); метрики (порог `min-samples`, сортировка самых долгих/быстрых вопросов, `excludedSuspiciousAttempts`); правила обратной связи (границы порогов 49/50/74/75/89/90, состав `focusAreas`); контракт безопасности (ответы во время прохождения не содержат правильный вариант или признак корректности).

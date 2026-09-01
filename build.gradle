@@ -1,0 +1,60 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.5'
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'com.vaadin' version '24.3.13'
+}
+
+group = 'com.testlyflow'
+version = '1.0.0'
+description = 'Knowledge testing platform (single module: Java backend + Vaadin UI)'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+}
+
+ext {
+    vaadinVersion = '24.3.13'
+    karibuVersion = '2.1.4'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "com.vaadin:vaadin-bom:${vaadinVersion}"
+    }
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'com.vaadin:vaadin-core'
+    implementation('com.vaadin:vaadin-spring-boot-starter') {
+        exclude group: 'com.vaadin', module: 'vaadin'
+    }
+    runtimeOnly 'org.postgresql:postgresql'
+    implementation 'org.flywaydb:flyway-core'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation "com.github.mvysny.kaributesting:karibu-testing-v24:${karibuVersion}"
+    testImplementation 'com.h2database:h2'
+}
+
+// Vaadin 24.3 defaults to ${project.projectDir}/frontend. Theme lives under
+// src/main/frontend (24.4+ layout) so the plugin must be pointed there.
+vaadin {
+    frontendDirectory = file("${project.projectDir}/src/main/frontend")
+    generatedTsFolder = file("${project.projectDir}/src/main/frontend/generated")
+    nodeVersion = 'v22.17.1'
+    // Run with -Pvaadin.productionMode=true (as the production Docker build does)
+    // to produce the optimized client bundle, mirroring the Maven "production" profile.
+    productionMode = project.hasProperty('vaadin.productionMode')
+}
+
+test {
+    useJUnitPlatform()
+}

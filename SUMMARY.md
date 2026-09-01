@@ -16,8 +16,10 @@
 ```
 /
 ├── docker-compose.yml            # postgres + app
-├── Dockerfile                    # mvn -Pproduction → JRE
-├── pom.xml                       # единственный Maven-модуль
+├── Dockerfile                    # gradlew bootJar -Pvaadin.productionMode=true → JRE
+├── build.gradle                  # единственный Gradle-модуль
+├── settings.gradle
+├── gradlew / gradlew.bat / gradle/
 ├── .env.example
 ├── README.md
 ├── SUMMARY.md
@@ -141,19 +143,19 @@
 
 - `docker-compose.yml`: два сервиса — `postgres` (healthcheck, volume `pgdata`) и `app` (ждёт готовности БД, порт 8080). Поднимается одной командой `docker-compose up --build`.
 - `.env.example` — `POSTGRES_DB/USER/PASSWORD`, `ADMIN_PASSWORD`.
-- Dockerfile — многостадийная сборка `mvn -Pproduction` → JRE.
+- Dockerfile — многостадийная сборка `./gradlew -Pvaadin.productionMode=true bootJar` → JRE.
 
 ## Тесты
 
 ```
-mvn test
+./gradlew test
 ```
 
 Бизнес-логика (парсер, сборка попытки, тайминги, метрики, обратная связь, контракт «правильный ответ не уезжает сотруднику») плюс UI-тесты Karibu и smoke `GET /api/categories`.
 
 ## Известные ограничения / что не проверялось в этой сессии
 
-- Полный `docker-compose up` end-to-end не прогонялся (в среде нет Docker daemon). Проверено: `mvn test`. Реальный сквозной прогон стоит сделать перед продакшен-использованием.
+- Полный `docker-compose up` end-to-end не прогонялся (в среде нет Docker daemon). Проверено: `./gradlew test`. Реальный сквозной прогон стоит сделать перед продакшен-использованием.
 - UI stateful: больше одного инстанса `app` требуют sticky sessions. Таймаут HTTP-сессии — 4 часа.
 - Тайминги из UI считает сервер, поэтому попытки через UI почти не получают `timing_suspicious`. Проверка по REST-клиентам сохранена.
 - Нет rate limiting / anti-spam защиты публичных эндпоинтов.
