@@ -1,5 +1,6 @@
 package com.testlyflow.service;
 
+import com.testlyflow.config.TestlyProperties;
 import com.testlyflow.dto.AdminCategoryDto;
 import com.testlyflow.dto.CategoryDto;
 import com.testlyflow.dto.CategoryUpsertRequest;
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class CategoryService {
@@ -23,15 +26,18 @@ public class CategoryService {
     private final QuestionRepository questionRepository;
     private final TestRepository testRepository;
     private final PrepLinkRepository prepLinkRepository;
+    private final TestlyProperties properties;
 
     public CategoryService(CategoryRepository categoryRepository,
                             QuestionRepository questionRepository,
                             TestRepository testRepository,
-                            PrepLinkRepository prepLinkRepository) {
+                            PrepLinkRepository prepLinkRepository,
+                            TestlyProperties properties) {
         this.categoryRepository = categoryRepository;
         this.questionRepository = questionRepository;
         this.testRepository = testRepository;
         this.prepLinkRepository = prepLinkRepository;
+        this.properties = properties;
     }
 
     @Transactional(readOnly = true)
@@ -41,6 +47,51 @@ public class CategoryService {
                         questionRepository.countByCategoryId(c.getId()), prepLinksOf(c.getId())))
                 .filter(dto -> dto.questionCount() > 0)
                 .toList();
+    }
+
+    /**
+     * Estimate of how many questions a newly started attempt will contain, using each
+     * category's own min/max when set and the global sampling defaults otherwise.
+     */
+    @Transactional(readOnly = true)
+    public AttemptSizeEstimate estimateAttemptSize() {
+        int min = 0;
+        int max = 0;
+        int blocks = 0;
+        for (Category category : categoryRepository.findAllByOrderBySortOrderAscNameAsc()) {
+            long count = questionRepository.countByCategoryId(category.getId());
+            if (count <= 0) {
+                continue;
+            }
+            blocks++;
+            int catMin = category.getQuestionsMin() != null
+                    ? category.getQuestionsMin()
+                    : properties.getSampling().getQuestionsPerCategoryMin();
+            int catMax = category.getQuestionsMax() != null
+                    ? category.getQuestionsMax()
+                    : properties.getSampling().getQuestionsPerCategoryMax();
+            if (catMax < catMin) {
+                catMax = catMin;
+            }
+            min += (int) Math.min(count, catMin);
+            max += (int) Math.min(count, catMax);
+        }
+        return new AttemptSizeEstimate(min, max, blocks);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PrepLinkDto> listPrepLinks(Long categoryId) {
+        return prepLinksOf(categoryId);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, List<PrepLinkDto>> prepLinksByCategory() {
+        return prepLinkRepository.findAll().stream()
+                .collect(Collectors.groupingBy(
+                        link -> link.getCategory().getId(),
+                        Collectors.mapping(
+                                link -> new PrepLinkDto(link.getId(), link.getTitle(), link.getUrl()),
+                                Collectors.toList())));
     }
 
     private List<PrepLinkDto> prepLinksOf(Long categoryId) {
@@ -202,5 +253,8 @@ public class CategoryService {
     }
 
     public record CategoryResolution(Category category, boolean created) {
+    }
+
+    public record AttemptSizeEstimate(int minQuestions, int maxQuestions, int blockCount) {
     }
 }

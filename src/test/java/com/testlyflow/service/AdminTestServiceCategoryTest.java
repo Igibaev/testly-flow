@@ -7,7 +7,6 @@ import com.testlyflow.parser.MarkdownTestParser;
 import com.testlyflow.repository.TestRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.ArgumentCaptor;
-import org.springframework.mock.web.MockMultipartFile;
 
 import java.nio.charset.StandardCharsets;
 
@@ -58,10 +57,8 @@ class AdminTestServiceCategoryTest {
         when(categoryService.resolveForUpload(eq(7L), isNull(), isNull(), isNull()))
                 .thenReturn(new CategoryService.CategoryResolution(category, false));
 
-        MockMultipartFile file = new MockMultipartFile("file", "sample.md", "text/markdown",
-                SAMPLE_MD.getBytes(StandardCharsets.UTF_8));
-
-        UploadTestResponse response = adminTestService.uploadTest(file, null, 7L, null, null, null);
+        UploadTestResponse response = adminTestService.uploadTest(
+                SAMPLE_MD.getBytes(StandardCharsets.UTF_8), null, 7L, null, null, null);
 
         assertEquals(7L, response.categoryId());
         assertEquals("Флоу гашения", response.categoryName());

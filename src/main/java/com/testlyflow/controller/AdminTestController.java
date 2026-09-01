@@ -30,6 +30,11 @@ public class AdminTestController {
                                           @RequestParam(value = "newCategoryName", required = false) String newCategoryName,
                                           @RequestParam(value = "newCategoryDescription", required = false) String newCategoryDescription,
                                           @RequestParam(value = "newCategoryColor", required = false) String newCategoryColor) {
-        return adminTestService.uploadTest(file, title, categoryId, newCategoryName, newCategoryDescription, newCategoryColor);
+        try {
+            return adminTestService.uploadTest(file.getBytes(), title, categoryId, newCategoryName,
+                    newCategoryDescription, newCategoryColor);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException("Не удалось прочитать содержимое файла", e);
+        }
     }
 }

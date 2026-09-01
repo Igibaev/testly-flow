@@ -12,10 +12,7 @@ import com.testlyflow.parser.ParsedTestResult;
 import com.testlyflow.repository.TestRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -35,16 +32,10 @@ public class AdminTestService {
     }
 
     @Transactional
-    public UploadTestResponse uploadTest(MultipartFile file, String titleParam,
+    public UploadTestResponse uploadTest(byte[] fileBytes, String titleParam,
                                           Long categoryId, String newCategoryName,
                                           String newCategoryDescription, String newCategoryColor) {
-        String content;
-        try {
-            content = new String(file.getBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Не удалось прочитать содержимое файла", e);
-        }
-
+        String content = new String(fileBytes, StandardCharsets.UTF_8);
         ParsedTestResult parsed = parser.parse(content);
 
         String title = (titleParam != null && !titleParam.isBlank()) ? titleParam.trim() : parsed.getTitleFromFile();

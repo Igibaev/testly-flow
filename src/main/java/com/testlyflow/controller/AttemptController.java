@@ -2,6 +2,7 @@ package com.testlyflow.controller;
 
 import com.testlyflow.dto.*;
 import com.testlyflow.service.AttemptService;
+import com.testlyflow.ui.support.ClientInfoResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -21,8 +22,8 @@ public class AttemptController {
     @PostMapping("/start")
     public StartAttemptResponse start(@Valid @RequestBody StartAttemptRequest request,
                                        HttpServletRequest httpRequest) {
-        String ip = extractClientIp(httpRequest);
-        String userAgent = httpRequest.getHeader("User-Agent");
+        String ip = ClientInfoResolver.ip(httpRequest);
+        String userAgent = ClientInfoResolver.userAgent(httpRequest);
         return attemptService.startAttempt(request, ip, userAgent);
     }
 
@@ -43,13 +44,5 @@ public class AttemptController {
     public SubmitAttemptResponse submit(@PathVariable Long attemptId,
                                          @RequestBody(required = false) SubmitAttemptRequest request) {
         return attemptService.submitAttempt(attemptId, request != null ? request : new SubmitAttemptRequest(null, null));
-    }
-
-    private String extractClientIp(HttpServletRequest request) {
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            return forwardedFor.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
     }
 }

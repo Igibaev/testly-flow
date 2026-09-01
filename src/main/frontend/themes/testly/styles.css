@@ -1,0 +1,28 @@
+@import url('./tokens.css');
+@import url('./app.css');
+
+/* Map Lumo tokens used by admin components onto the project palette
+   so Grid/Dialog/Upload don't drift from the employee-facing CSS. */
+html {
+  --lumo-font-family: var(--font-sans);
+  --lumo-font-size-m: var(--text-base);
+  --lumo-line-height-m: var(--line-height);
+  --lumo-base-color: var(--color-surface);
+  --lumo-body-text-color: var(--color-text);
+  --lumo-secondary-text-color: var(--color-text-muted);
+  --lumo-tertiary-text-color: var(--color-text-muted);
+  --lumo-primary-color: var(--color-accent);
+  --lumo-primary-text-color: var(--color-accent);
+  --lumo-primary-color-50pct: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  --lumo-primary-color-10pct: var(--color-accent-soft);
+  --lumo-error-color: var(--color-danger);
+  --lumo-success-color: var(--color-success);
+  --lumo-contrast-10pct: var(--color-border);
+  --lumo-contrast-20pct: var(--color-border);
+  --lumo-border-radius-m: var(--radius-sm);
+  --lumo-border-radius-l: var(--radius-md);
+}
+
+vaadin-grid {
+  font-size: var(--text-sm);
+}

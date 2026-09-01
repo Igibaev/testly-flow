@@ -6,43 +6,34 @@
 
 | Слой | Технология |
 |---|---|
-| Backend | Java 17, Spring Boot 3.2.5 (Web, Data JPA, Validation), Flyway |
-| Frontend | React 18 + Vite + React Router, без UI-библиотек (чистый CSS) |
+| Приложение | Java 17, Spring Boot 3.2.5 (Web, Data JPA, Validation), Vaadin Flow 24.3, Flyway |
+| UI | Vaadin Flow (серверный UI на Java, тема `src/main/frontend/themes/testly`) |
 | БД | PostgreSQL 16 |
-| Контейнеризация | Docker + docker-compose (postgres / backend / frontend) |
+| Контейнеризация | Docker + docker-compose (`postgres` / `app`) |
 
 ## Структура репозитория
 
 ```
 /
-├── docker-compose.yml
+├── docker-compose.yml            # postgres + app
+├── Dockerfile                    # mvn -Pproduction → JRE
+├── pom.xml                       # единственный Maven-модуль
 ├── .env.example
 ├── README.md
 ├── SUMMARY.md
-├── sample-test.md                # пример входного MD-файла теста
-├── backend/
-│   ├── Dockerfile                # многостадийная сборка (maven -> jre)
-│   ├── pom.xml
-│   └── src/main/java/com/testlyflow/
-│       ├── controller/           # REST-контроллеры
-│       ├── service/               # бизнес-логика
-│       ├── repository/            # Spring Data JPA репозитории
-│       ├── entity/                 # JPA-сущности
-│       ├── dto/                    # DTO запросов/ответов
-│       ├── parser/                 # парсер MD-файла теста
-│       ├── config/                 # CORS, интерцептор админ-пароля
-│       └── exception/              # кастомные исключения + @RestControllerAdvice
-│   └── src/main/resources/
-│       ├── application.yml
-│       └── db/migration/          # Flyway-миграции (V1, V2)
-│   └── src/test/java/...          # юнит-тесты парсера и подсчёта баллов
-└── frontend/
-    ├── Dockerfile                 # сборка Vite -> nginx
-    ├── nginx.conf                 # SPA fallback + проксирование /api на backend
-    └── src/
-        ├── api/                   # обёртки над fetch (публичные + admin)
-        ├── pages/                 # публичные страницы
-        └── pages/admin/           # админ-раздел
+├── sample-test.md
+└── src/main/java/com/testlyflow/
+    ├── controller/               # REST /api/**
+    ├── service/
+    ├── repository/
+    ├── entity/
+    ├── dto/
+    ├── parser/
+    ├── config/
+    ├── exception/
+    └── ui/                       # Vaadin: экраны сотрудника и админки
+└── src/main/frontend/themes/testly/
+└── src/main/resources/db/migration/   # V1–V4, без новых миграций в этой итерации
 ```
 
 ## Функционал
@@ -67,7 +58,7 @@
 
 - Пользователь вводит имя, фамилию и команду на стартовой странице.
 - При старте попытки backend фиксирует:
-  - IP-адрес (с учётом `X-Forwarded-For`, так как за nginx-прокси, иначе `remoteAddr`);
+  - IP-адрес (с учётом `X-Forwarded-For`, иначе `remoteAddr`);
   - `User-Agent` из заголовка запроса.
 - Все вопросы теста показываются на одной странице (single-page прохождение), выбор варианта — radio-кнопки.
 - При отправке backend сам подсчитывает количество правильных ответов и процент (`ScoringCalculator`, округление до 2 знаков), сохраняет попытку целиком: кто, когда начал/закончил, откуда, по какому тесту, результат и детализация по каждому вопросу (`attempt_answers`).
@@ -75,7 +66,7 @@
 
 ### 4. Административная часть
 
-Доступ закрыт простым паролем через заголовок `X-Admin-Password` (значение берётся из env `ADMIN_PASSWORD`, по умолчанию `admin`). Проверяется Spring-интерцептором на все пути `/api/admin/**`. Фронтенд один раз запрашивает пароль, хранит его в `sessionStorage` и подставляет в каждый admin-запрос.
+Доступ к REST-админке закрыт паролем через заголовок `X-Admin-Password` (env `ADMIN_PASSWORD`, по умолчанию `admin`) — Spring-интерцептор на `/api/admin/**`. UI-админка спрашивает пароль один раз и держит признак в `VaadinSession` (сравнение пароля в постоянном времени).
 
 Возможности:
 - список всех загруженных тестов (с числом вопросов, числом попыток, датой создания);
@@ -134,36 +125,36 @@
 ## Frontend — страницы
 
 **Публичная часть:**
-- `/` — список тестов;
-- `/test/:id` — подготовительные материалы + форма имя/фамилия/команда;
-- `/test/:id/run` — прохождение (все вопросы на одной странице);
-- `/test/:id/result` — результат с детализацией по каждому вопросу.
+- `/` — витрина категорий и форма старта;
+- `/attempt/:id` — пошаговое прохождение;
+- `/attempt/:id/result` — мотивирующий результат без правильных вариантов.
 
 **Админ-раздел (`/admin`):**
 - вход по паролю;
-- `tests` — список тестов + форма загрузки нового (файл + название + подготовительные ссылки);
-- `attempts` — список попыток с фильтрами по тесту/команде и пагинацией;
-- `attempts/:id` — детализация попытки;
-- `metrics` — дашборд метрик.
+- `categories` — категории и подготовительные ссылки;
+- `tests` — загрузка MD-файлов;
+- `attempts` / `attempts/:id` — попытки и детализация;
+- `employees` / карточка сотрудника;
+- `metrics` — дашборд.
 
 ## Инфраструктура
 
-- `docker-compose.yml`: три сервиса — `postgres` (с healthcheck и volume), `backend` (ждёт готовности БД), `frontend` (nginx, отдаёт статику и проксирует `/api` на backend). Поднимается одной командой `docker-compose up --build`.
-- `.env.example` — переменные `POSTGRES_DB/USER/PASSWORD`, `ADMIN_PASSWORD`.
-- Backend-Dockerfile — многостадийная сборка (Maven → JRE-образ).
-- Frontend-Dockerfile — сборка Vite → статика в nginx.
+- `docker-compose.yml`: два сервиса — `postgres` (healthcheck, volume `pgdata`) и `app` (ждёт готовности БД, порт 8080). Поднимается одной командой `docker-compose up --build`.
+- `.env.example` — `POSTGRES_DB/USER/PASSWORD`, `ADMIN_PASSWORD`.
+- Dockerfile — многостадийная сборка `mvn -Pproduction` → JRE.
 
 ## Тесты
 
 ```
-cd backend && mvn test
+mvn test
 ```
 
-10 юнит-тестов: 7 на парсер MD-файла (см. раздел 1), 3 на `ScoringCalculator` (расчёт процента, округление, edge case с нулём вопросов). Backend компилируется и тестируется чисто; frontend собирается через `npm run build` без ошибок.
+Бизнес-логика (парсер, сборка попытки, тайминги, метрики, обратная связь, контракт «правильный ответ не уезжает сотруднику») плюс UI-тесты Karibu и smoke `GET /api/categories`.
 
 ## Известные ограничения / что не проверялось в этой сессии
 
-- Полный `docker-compose up` end-to-end не прогонялся в среде разработки (там недоступен Docker daemon) — проверены по отдельности: `mvn test` (backend), `npm run build` (frontend), `docker compose config` (валидность compose-файла). Реальный сквозной прогон стоит сделать перед продакшен-использованием.
-- Нет rate limiting / anti-spam защиты публичных эндпоинтов (не требовалось ТЗ — авторизации нет по замыслу).
-- Нет ограничения по времени на прохождение теста (осознанное решение, зафиксированное в `IMPROVED_PROMPT.md`).
-- Ветка `main` создана от рабочей ветки, но не обязательно выставлена как default branch репозитория на GitHub — это настраивается вручную в Settings → Branches.
+- Полный `docker-compose up` end-to-end не прогонялся (в среде нет Docker daemon). Проверено: `mvn test`. Реальный сквозной прогон стоит сделать перед продакшен-использованием.
+- UI stateful: больше одного инстанса `app` требуют sticky sessions. Таймаут HTTP-сессии — 4 часа.
+- Тайминги из UI считает сервер, поэтому попытки через UI почти не получают `timing_suspicious`. Проверка по REST-клиентам сохранена.
+- Нет rate limiting / anti-spam защиты публичных эндпоинтов.
+- Нет ограничения по времени на прохождение теста (осознанное решение).
