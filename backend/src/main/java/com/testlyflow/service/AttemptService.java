@@ -261,15 +261,16 @@ public class AttemptService {
         attempt.setTimingSuspicious(suspicious);
         attemptRepository.save(attempt);
 
-        List<AnswerDetailDto> details = answers.stream()
-                .map(a -> new AnswerDetailDto(
+        // Public-facing (never carries the correct option, only whether the taker's own pick
+        // was right -- see PublicAnswerDetailDto).
+        List<PublicAnswerDetailDto> details = answers.stream()
+                .map(a -> new PublicAnswerDetailDto(
                         a.getQuestion().getId(),
                         a.getQuestion().getNumber(),
                         a.getQuestion().getText(),
                         a.getQuestion().getCategory().getId(),
                         a.getQuestion().getCategory().getName(),
                         a.getSelectedOption(),
-                        a.getQuestion().getCorrectOption(),
                         a.isCorrect(),
                         a.getTimeSpentMs()))
                 .sorted((x, y) -> Integer.compare(x.number(), y.number()))

@@ -89,7 +89,6 @@ export default function ResultPage() {
               {!d.isCorrect && (
                 <div className="answer-review-comparison">
                   <p>Твой ответ: {d.selectedOption ?? '— не выбран'}</p>
-                  <p>Верный ответ: {d.correctOption}</p>
                 </div>
               )}
             </li>

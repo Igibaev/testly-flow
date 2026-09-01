@@ -12,6 +12,6 @@ public record SubmitAttemptResponse(
         String headline,
         String message,
         List<FocusAreaDto> focusAreas,
-        List<AnswerDetailDto> details
+        List<PublicAnswerDetailDto> details
 ) {
 }
