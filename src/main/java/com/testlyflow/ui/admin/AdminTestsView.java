@@ -233,9 +233,26 @@ public class AdminTestsView extends Div {
         grid.addColumn(AdminTestSummaryDto::categoryName).setHeader("Категория");
         grid.addColumn(AdminTestSummaryDto::questionCount).setHeader("Вопросов");
         grid.addColumn(t -> Formats.dateTime(t.createdAt())).setHeader("Загружен");
+        grid.addComponentColumn(t -> NativeUi.button("Удалить", e -> handleDelete(t), "btn", "btn-secondary"))
+                .setHeader("");
         grid.setItems(tests);
         grid.setAllRowsVisible(true);
         listCard.add(grid);
+    }
+
+    private void handleDelete(AdminTestSummaryDto t) {
+        getUI().ifPresent(ui -> ui.getPage().executeJs(
+                "return confirm($0);", "Удалить загрузку «" + t.title() + "» вместе со всеми её вопросами?")
+                .then(Boolean.class, ok -> {
+                    if (Boolean.TRUE.equals(ok)) {
+                        try {
+                            adminTestService.deleteTest(t.id());
+                            reload();
+                        } catch (RuntimeException e) {
+                            showError(e.getMessage());
+                        }
+                    }
+                }));
     }
 
     private void showError(String message) {

@@ -6,6 +6,7 @@ import com.testlyflow.entity.Category;
 import com.testlyflow.entity.Question;
 import com.testlyflow.entity.QuestionOption;
 import com.testlyflow.entity.Test;
+import com.testlyflow.exception.NotFoundException;
 import com.testlyflow.parser.MarkdownTestParser;
 import com.testlyflow.parser.ParsedQuestion;
 import com.testlyflow.parser.ParsedTestResult;
@@ -89,5 +90,12 @@ public class AdminTestService {
                         test.getQuestions().size(),
                         test.getCreatedAt()))
                 .toList();
+    }
+
+    @Transactional
+    public void deleteTest(Long id) {
+        Test test = testRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Загрузка с id=" + id + " не найдена"));
+        testRepository.delete(test);
     }
 }
